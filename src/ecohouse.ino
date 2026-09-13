@@ -16,6 +16,12 @@ const int pinGrupo[NUM_GRUPOS]      = { 2, 6, 7, 8, 9 };
 const int ledsPorGrupo[NUM_GRUPOS]  = { 2, 1, 1, 2, 2 };
 const char* nomeGrupo[NUM_GRUPOS]   = { "Jardim", "Sala", "Quarto", "Banho+Chuv", "Cozinha+Forno" };
 
+// Mensagem de status ao apertar o botão do grupo (concordância/verbo próprios
+// de cada cômodo/aparelho: luzes usam aceso/apagado, o chuveiro e o forno
+// usam ligado/desligado).
+const char* msgLigado[NUM_GRUPOS]    = { "Jardim aceso", "Sala acesa", "Quarto aceso", "Chuveiro ligado", "Forno ligado" };
+const char* msgDesligado[NUM_GRUPOS] = { "Jardim apagado", "Sala apagada", "Quarto apagado", "Chuveiro desligado", "Forno desligado" };
+
 bool estadoGrupo[NUM_GRUPOS] = { false, false, false, false, false };
 
 // --- Botões -----------------------------------------------------------------
@@ -42,10 +48,24 @@ const unsigned long STANDBY_MS = 5000;
 // --- Consumo simulado ---------------------------------------------------
 const int V_LED = 2000; // mV aproximados por LED aceso (estimativa didática)
 
-unsigned long acumuladoDiurno_mV_s = 0;
-unsigned long acumuladoNoturno_mV_s = 0;
+unsigned long consumoTotalMax_mV = 0; // capturado com todos os LEDs ligados
 
 String mensagemAtual = "Iniciando";
+
+// --- Tensão da bateria ----------------------------------------------------
+// Divisor 100k/10k no pino A1 (100k do B+/L+ até o nó, 10k do nó ao GND),
+// lido com a referência interna de 1,1V — o Arduino é alimentado pela própria
+// bateria, então medir com a referência padrão (AVcc) só daria uma razão
+// constante em relação a si mesma, não a tensão real.
+const int PIN_BATERIA = A1;
+const float BAT_DIVISOR = 11.0; // (100k + 10k) / 10k
+const float VREF_INTERNA = 1.1;
+
+// --- Abertura de cada ciclo: acende tudo e guarda o consumo máximo -------
+bool emAbertura = false;
+bool modoNoturnoPendente = false;
+unsigned long aberturaAte = 0;
+const unsigned long ABERTURA_MS = 2500;
 
 // --- Sequência noturna: tour pela casa, um cômodo "ocupado" por vez -------
 const int TOUR_LEN = 7;
@@ -82,6 +102,16 @@ int calcularConsumoAtual_mV() {
   return mv;
 }
 
+float lerTensaoBateria() {
+  analogReference(INTERNAL);
+  analogRead(PIN_BATERIA); // descarta: 1a leitura após trocar a referência não é confiável
+  delay(2);
+  int bruto = analogRead(PIN_BATERIA);
+  analogReference(DEFAULT);
+  analogRead(PIN_SOLAR);   // idem, assenta de volta pra referência de 5V antes do próximo uso
+  return (bruto * VREF_INTERNA / 1023.0) * BAT_DIVISOR;
+}
+
 void iniciarTourNoturno() {
   apagarTudo();
   tourPasso = 0;
@@ -113,8 +143,6 @@ void sortearComboDiurno() {
 }
 
 void iniciarDiurno() {
-  acumuladoDiurno_mV_s = 0;
-  acumuladoNoturno_mV_s = 0;
   sortearComboDiurno();
 }
 
@@ -125,9 +153,20 @@ void avancarDiurno() {
   sortearComboDiurno();
 }
 
+// Acende todos os LEDs, guarda o consumo máximo em memória e, depois de
+// ABERTURA_MS, entra na sequência normal do modo (tour à noite, sorteio de dia).
+void iniciarAbertura(bool modoNoturno) {
+  for (int i = 0; i < NUM_GRUPOS; i++) estadoGrupo[i] = true;
+  consumoTotalMax_mV = calcularConsumoAtual_mV();
+  mensagemAtual = "Todos ligados";
+  emAbertura = true;
+  modoNoturnoPendente = modoNoturno;
+  aberturaAte = millis() + ABERTURA_MS;
+}
+
 void reiniciarCicloAtual(bool modoNoturno) {
-  if (modoNoturno) iniciarTourNoturno(); else iniciarDiurno();
-  standbyAte = millis(); // sem pausa: recomeça já
+  iniciarAbertura(modoNoturno);
+  standbyAte = millis(); // sem pausa extra além da própria abertura
 }
 
 void lerBotoesDeGrupo() {
@@ -141,7 +180,7 @@ void lerBotoesDeGrupo() {
       if (estadoEstavelGrupo[i] == LOW) { // borda de descida = botão pressionado
         estadoGrupo[i] = !estadoGrupo[i];
         standbyAte = agora + STANDBY_MS;
-        mensagemAtual = String(nomeGrupo[i]) + (estadoGrupo[i] ? " ON" : " OFF");
+        mensagemAtual = estadoGrupo[i] ? msgLigado[i] : msgDesligado[i];
       }
     }
     leituraAnteriorGrupo[i] = leitura;
@@ -157,7 +196,6 @@ void lerBotaoReset(bool modoNoturno) {
     estadoEstavelReset = leitura;
     if (estadoEstavelReset == LOW) {
       reiniciarCicloAtual(modoNoturno);
-      mensagemAtual = "Reiniciado";
     }
   }
   leituraAnteriorReset = leitura;
@@ -165,15 +203,12 @@ void lerBotaoReset(bool modoNoturno) {
 
 void atualizarDisplay(bool modoNoturno) {
   int consumo = calcularConsumoAtual_mV();
-  unsigned long contribuicao = (unsigned long)consumo * DISPLAY_INTERVALO_MS / 1000;
-  if (modoNoturno) acumuladoNoturno_mV_s += contribuicao;
-  else acumuladoDiurno_mV_s += contribuicao;
+  float tensaoBateria = lerTensaoBateria();
 
-  float economia = 0;
-  if (acumuladoDiurno_mV_s > 0) {
-    economia = (1.0 - ((float)acumuladoNoturno_mV_s / (float)acumuladoDiurno_mV_s)) * 100.0;
+  float percentualMax = 0;
+  if (consumoTotalMax_mV > 0) {
+    percentualMax = (100.0 * consumo) / (float)consumoTotalMax_mV;
   }
-  if (economia < 0) economia = 0;
 
   display.clearDisplay();
   display.setTextSize(1);
@@ -182,18 +217,22 @@ void atualizarDisplay(bool modoNoturno) {
   display.setCursor(0, 0);
   display.print(modoNoturno ? F("NOTURNO") : F("DIURNO"));
 
-  display.setCursor(0, 10);
+  display.setCursor(0, 9);
   display.print(mensagemAtual);
 
-  display.setCursor(0, 22);
-  display.print(F("Cons: "));
+  display.setCursor(0, 18);
+  display.print(F("Cons:"));
   display.print(consumo);
   display.print(F("mV"));
 
-  display.setCursor(0, 32);
-  display.print(F("Econ: "));
-  display.print(economia, 0);
-  display.print(F("%"));
+  display.setCursor(0, 27);
+  display.print(F("Bat:"));
+  display.print(tensaoBateria, 2);
+  display.print(F("V"));
+
+  display.setCursor(0, 36);
+  display.print(percentualMax, 0);
+  display.print(F("% do max"));
 
   display.display();
 }
@@ -208,7 +247,7 @@ void setup() {
   display.begin();
   display.setContrast(50);
 
-  randomSeed(analogRead(A1)); // A1 fica livre, só usada como ruído p/ semente
+  randomSeed(analogRead(PIN_BATERIA));
 
   apagarTudo();
   aplicarEstados();
@@ -228,7 +267,14 @@ void loop() {
     primeiraLeitura = false;
   }
 
-  if (modoNoturno) avancarTourNoturno(); else avancarDiurno();
+  if (emAbertura) {
+    if (agora >= aberturaAte) {
+      emAbertura = false;
+      if (modoNoturnoPendente) iniciarTourNoturno(); else iniciarDiurno();
+    }
+  } else {
+    if (modoNoturno) avancarTourNoturno(); else avancarDiurno();
+  }
 
   aplicarEstados();
 
