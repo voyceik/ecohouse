@@ -34,28 +34,28 @@ const byte B_CHUVEIRO = 1 << 7; // Vermelho - carga pesada (banheiro)
 const byte TODOS_LEDS = 0xFF;
 const int NUM_LEDS = 8;
 
-// Consumo estimado por LED (mV, didático) — cargas pesadas (forno/chuveiro)
-// pesam bem mais que uma simples lâmpada de cômodo, de propósito: é o que
-// torna o "% do máximo" no display um dado interessante de comparar.
+// Consumo estimado por carga (W, potência real aproximada) — forno e chuveiro
+// são as cargas pesadas da casa, bem acima de uma simples lâmpada de cômodo:
+// é o que torna o "% do máximo" no display um dado interessante de comparar.
 const unsigned int consumoPorLed[NUM_LEDS] = {
-  800, 800,     // Jardim 1, Jardim 2
-  1500,         // Sala
-  1500,         // Cozinha
-  1500,         // Quarto
-  1500,         // Banheiro
-  6000,         // Forno
-  6000          // Chuveiro
+  50, 50,       // Jardim 1, Jardim 2
+  50,           // Sala
+  50,           // Cozinha
+  50,           // Quarto
+  50,           // Banheiro
+  2000,         // Forno
+  3000          // Chuveiro
 };
 
-unsigned long calcularConsumo_mV(byte estado) {
-  unsigned long mv = 0;
+unsigned long calcularConsumo_W(byte estado) {
+  unsigned long w = 0;
   for (int i = 0; i < NUM_LEDS; i++) {
-    if (estado & (1 << i)) mv += consumoPorLed[i];
+    if (estado & (1 << i)) w += consumoPorLed[i];
   }
-  return mv;
+  return w;
 }
 
-const unsigned long CONSUMO_MAX_mV = 800 + 800 + 1500 * 4 + 6000 * 2; // todos ligados
+const unsigned long CONSUMO_MAX_W = 50 * 6 + 2000 + 3000; // todos ligados
 
 // --- Botões -----------------------------------------------------------------
 // 1 botão por LED/par + 1 de reinício. INPUT_PULLUP: pressionado = LOW.
@@ -90,6 +90,10 @@ const unsigned long DEBOUNCE_MS = 40;
 // uma razão constante em relação a si mesma, não a tensão real).
 const float BAT_DIVISOR = 11.0; // (100k + 10k) / 10k
 const float VREF_INTERNA = 1.1;
+// A maquete só tem uma bateria de ~12V no divisor, mas um banco off-grid de
+// verdade é montado com várias em série (ex.: 10x12V = 120V). Escalamos a
+// leitura por esse fator só para exibir uma tensão de banco mais realista.
+const float FATOR_BANCO_BATERIAS = 10.0;
 
 float lerTensaoBateria() {
   analogReference(INTERNAL);
@@ -98,7 +102,7 @@ float lerTensaoBateria() {
   int bruto = analogRead(PIN_BATERIA);
   analogReference(DEFAULT);
   analogRead(PIN_SOLAR);   // assenta de volta pra referência de 5V antes do próximo uso
-  return (bruto * VREF_INTERNA / 1023.0) * BAT_DIVISOR;
+  return (bruto * VREF_INTERNA / 1023.0) * BAT_DIVISOR * FATOR_BANCO_BATERIAS;
 }
 
 // --- Roteiro determinístico dia/noite ---------------------------------------
@@ -231,9 +235,9 @@ void lerBotaoReset(unsigned long agora, bool modoNoturno) {
 }
 
 void atualizarDisplay(bool modoNoturno) {
-  unsigned long consumo = calcularConsumo_mV(estadoAtual);
+  unsigned long consumo = calcularConsumo_W(estadoAtual);
   float tensaoBateria = lerTensaoBateria();
-  float percentualMax = (100.0 * consumo) / (float)CONSUMO_MAX_mV;
+  float percentualMax = (100.0 * consumo) / (float)CONSUMO_MAX_W;
 
   display.clearDisplay();
   display.setTextSize(1);
@@ -248,7 +252,7 @@ void atualizarDisplay(bool modoNoturno) {
   display.setCursor(0, 18);
   display.print(F("Cons:"));
   display.print(consumo);
-  display.print(F("mV"));
+  display.print(F("W"));
 
   display.setCursor(0, 27);
   display.print(F("Bat:"));

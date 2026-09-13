@@ -63,17 +63,17 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 | GND | GND |
 | A0, A1, A2 (endereço) | GND (endereço 0x20) |
 
-**LEDs individuais** (cada LED: PCF8574 → resistor 220Ω → anodo; catodo → GND. O PCF8574 aciona em nível baixo: escrever 0 acende, 1 apaga)
-| LED | Pino do PCF8574 (P0-P7) | Cor | Uso |
-|---|---|---|---|
-| Jardim 1 | P0 | Verde | Iluminação externa |
-| Jardim 2 | P1 | Verde | Iluminação externa |
-| Sala | P2 | Amarelo | Cômodo |
-| Cozinha | P3 | Amarelo | Cômodo |
-| Quarto | P4 | Amarelo | Cômodo |
-| Banheiro | P5 | Amarelo | Cômodo |
-| Forno | P6 | Vermelho | Carga pesada (cozinha) |
-| Chuveiro | P7 | Vermelho | Carga pesada (banheiro) |
+**LEDs individuais** (cada LED: 5V → resistor 220Ω → anodo; catodo → pino do PCF8574. O PCF8574 aciona em nível baixo, "puxando" o catodo pra 0V: escrever 0 acende, 1 apaga)
+| LED | Pino do PCF8574 (P0-P7) | Cor | Uso | Potência simulada |
+|---|---|---|---|---|
+| Jardim 1 | P0 | Verde | Iluminação externa | 50 W |
+| Jardim 2 | P1 | Verde | Iluminação externa | 50 W |
+| Sala | P2 | Amarelo | Cômodo | 50 W |
+| Cozinha | P3 | Amarelo | Cômodo | 50 W |
+| Quarto | P4 | Amarelo | Cômodo | 50 W |
+| Banheiro | P5 | Amarelo | Cômodo | 50 W |
+| Forno | P6 | Vermelho | Carga pesada (cozinha) | 2000 W |
+| Chuveiro | P7 | Vermelho | Carga pesada (banheiro) | 3000 W |
 
 **Botões** (uma perna no pino, outra no GND — sem resistor, usa `INPUT_PULLUP`)
 | Botão | Pino | Ação |
@@ -116,6 +116,8 @@ O ciclo é um **roteiro fixo por horário**, não mais aleatório — cada modo 
 
 **Botão de reinício**: reinicia do zero (t=0) o roteiro do modo atual (dia ou noite).
 
-**Consumo estimado**: cada LED tem um valor de consumo (mV, didático) — 800 para as luzes de jardim, 1500 para as luzes de cômodo, 6000 para forno/chuveiro (cargas pesadas, de propósito bem maiores, para o "% do máximo" no display fazer sentido comparando uma lâmpada com um chuveiro/forno). O máximo (todos ligados) é uma constante calculada uma vez.
+**Consumo estimado**: cada LED representa uma carga com potência real aproximada (W) — 50W para cada luz (jardim e cômodos), 2000W para o forno e 3000W para o chuveiro (cargas pesadas de verdade, para o "% do máximo" no display fazer sentido comparando uma lâmpada com um chuveiro/forno). O máximo (todos ligados) é uma constante calculada uma vez.
 
-**Display em tempo real** mostra: modo atual, o passo/ação atual do roteiro (ou o status do botão pressionado), consumo instantâneo estimado (mV), tensão da bateria (V) e o % desse consumo em relação ao máximo (todos os LEDs ligados).
+**Tensão do banco de baterias**: a maquete só tem uma bateria de ~12V no divisor de A1, mas para simular um banco off-grid real (várias baterias em série) o firmware multiplica a leitura por 10 antes de mostrar no display — então o valor exibido representa a tensão de um banco de ~120V, não a tensão física medida na protoboard.
+
+**Display em tempo real** mostra: modo atual, o passo/ação atual do roteiro (ou o status do botão pressionado), consumo instantâneo estimado (W), tensão do banco de baterias simulado (V) e o % desse consumo em relação ao máximo (todos os LEDs ligados).
