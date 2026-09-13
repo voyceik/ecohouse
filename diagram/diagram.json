@@ -4,93 +4,39 @@
   "editor": "wokwi",
   "parts": [
     { "type": "wokwi-arduino-uno", "id": "uno", "top": 48.6, "left": 95.4, "attrs": {} },
-    {
-      "type": "wokwi-led",
-      "id": "led1",
-      "top": 97.6,
-      "left": -120.6,
-      "rotate": 180,
-      "attrs": { "color": "red" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r1",
-      "top": 72,
-      "left": -134.95,
-      "rotate": 90,
-      "attrs": { "value": "220" }
-    },
-    {
-      "type": "wokwi-led",
-      "id": "led2",
-      "top": 97.6,
-      "left": -91.8,
-      "rotate": 180,
-      "attrs": { "color": "red" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r2",
-      "top": 72,
-      "left": -106.15,
-      "rotate": 90,
-      "attrs": { "value": "220" }
-    },
-    {
-      "type": "wokwi-led",
-      "id": "led3",
-      "top": 97.6,
-      "left": -63,
-      "rotate": 180,
-      "attrs": { "color": "red" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r3",
-      "top": 72,
-      "left": -77.35,
-      "rotate": 90,
-      "attrs": { "value": "220" }
-    },
-    {
-      "type": "wokwi-led",
-      "id": "led4",
-      "top": 97.6,
-      "left": -34.2,
-      "rotate": 180,
-      "attrs": { "color": "red" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r4",
-      "top": 72,
-      "left": -48.55,
-      "rotate": 90,
-      "attrs": { "value": "220" }
-    },
-    {
-      "type": "wokwi-led",
-      "id": "led5",
-      "top": 97.6,
-      "left": -5.4,
-      "rotate": 180,
-      "attrs": { "color": "red" }
-    },
-    {
-      "type": "wokwi-resistor",
-      "id": "r5",
-      "top": 72,
-      "left": -19.75,
-      "rotate": 90,
-      "attrs": { "value": "220" }
-    },
     { "type": "board-nokia-5110", "id": "lcd1", "top": 315.06, "left": -51.78, "attrs": {} },
 
-    { "type": "wokwi-ldr", "id": "ldr1", "top": 120, "left": 620, "attrs": {} },
+    { "type": "chip-pcf8574", "id": "u1", "top": 90, "left": 460, "attrs": {} },
+
+    { "type": "wokwi-led", "id": "led1", "top": 10, "left": 800, "rotate": 90, "attrs": { "color": "green" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": 15, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-led", "id": "led2", "top": 55, "left": 800, "rotate": 90, "attrs": { "color": "green" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 60, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-led", "id": "led3", "top": 100, "left": 800, "rotate": 90, "attrs": { "color": "yellow" } },
+    { "type": "wokwi-resistor", "id": "r3", "top": 105, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-led", "id": "led4", "top": 145, "left": 800, "rotate": 90, "attrs": { "color": "yellow" } },
+    { "type": "wokwi-resistor", "id": "r4", "top": 150, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-led", "id": "led5", "top": 190, "left": 800, "rotate": 90, "attrs": { "color": "yellow" } },
+    { "type": "wokwi-resistor", "id": "r5", "top": 195, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-led", "id": "led6", "top": 235, "left": 800, "rotate": 90, "attrs": { "color": "yellow" } },
+    { "type": "wokwi-resistor", "id": "r6", "top": 240, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-led", "id": "led7", "top": 280, "left": 800, "rotate": 90, "attrs": { "color": "red" } },
+    { "type": "wokwi-resistor", "id": "r7", "top": 285, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-led", "id": "led8", "top": 325, "left": 800, "rotate": 90, "attrs": { "color": "red" } },
+    { "type": "wokwi-resistor", "id": "r8", "top": 330, "left": 720, "rotate": 0, "attrs": { "value": "220" } },
+
+    { "type": "wokwi-ldr", "id": "ldr1", "top": 470, "left": 620, "attrs": {} },
     {
       "type": "wokwi-resistor",
       "id": "r_ldr",
-      "top": 120,
+      "top": 470,
       "left": 690,
       "rotate": 0,
       "attrs": { "value": "10000" }
@@ -99,7 +45,7 @@
     {
       "type": "wokwi-resistor",
       "id": "r_bat_100k",
-      "top": 120,
+      "top": 470,
       "left": 830,
       "rotate": 0,
       "attrs": { "value": "100000" }
@@ -107,30 +53,20 @@
     {
       "type": "wokwi-resistor",
       "id": "r_bat_10k",
-      "top": 120,
+      "top": 470,
       "left": 900,
       "rotate": 0,
       "attrs": { "value": "10000" }
     },
 
-    { "type": "wokwi-pushbutton", "id": "btn_jardim", "top": 260, "left": 150, "attrs": { "color": "blue" } },
-    { "type": "wokwi-pushbutton", "id": "btn_sala", "top": 260, "left": 220, "attrs": { "color": "blue" } },
-    { "type": "wokwi-pushbutton", "id": "btn_quarto", "top": 260, "left": 290, "attrs": { "color": "blue" } },
-    { "type": "wokwi-pushbutton", "id": "btn_banheiro", "top": 260, "left": 360, "attrs": { "color": "blue" } },
-    { "type": "wokwi-pushbutton", "id": "btn_cozinha", "top": 260, "left": 430, "attrs": { "color": "blue" } },
-    { "type": "wokwi-pushbutton", "id": "btn_reset", "top": 260, "left": 500, "attrs": { "color": "red" } }
+    { "type": "wokwi-pushbutton", "id": "btn_jardim", "top": 570, "left": 150, "attrs": { "color": "blue" } },
+    { "type": "wokwi-pushbutton", "id": "btn_sala", "top": 570, "left": 220, "attrs": { "color": "blue" } },
+    { "type": "wokwi-pushbutton", "id": "btn_quarto", "top": 570, "left": 290, "attrs": { "color": "blue" } },
+    { "type": "wokwi-pushbutton", "id": "btn_banheiro", "top": 570, "left": 360, "attrs": { "color": "blue" } },
+    { "type": "wokwi-pushbutton", "id": "btn_cozinha", "top": 570, "left": 430, "attrs": { "color": "blue" } },
+    { "type": "wokwi-pushbutton", "id": "btn_reset", "top": 570, "left": 500, "attrs": { "color": "red" } }
   ],
   "connections": [
-    [ "led1:A", "r1:2", "green", [ "v0" ] ],
-    [ "led2:A", "r2:2", "green", [ "v0" ] ],
-    [ "led3:A", "r3:2", "green", [ "v0" ] ],
-    [ "led4:A", "r4:2", "green", [ "v0" ] ],
-    [ "led5:A", "r5:2", "green", [ "v0" ] ],
-    [ "r5:1", "uno:9", "green", [ "h0" ] ],
-    [ "r4:1", "uno:8", "green", [ "v-9.6", "h287.6" ] ],
-    [ "r3:1", "uno:7", "green", [ "v-19.2", "h332.4" ] ],
-    [ "r2:1", "uno:6", "green", [ "v-28.8", "h370.7" ] ],
-    [ "r1:1", "uno:2", "green", [ "v-38.4", "h437.5" ] ],
     [ "lcd1:RST.2 ", "uno:3", "green", [ "v-28.8", "h316.8", "v-201.6" ] ],
     [ "uno:4", "lcd1:CE.2", "green", [ "v259.2", "h-303.3" ] ],
     [ "lcd1:DC.2", "uno:5", "green", [ "v-19.2", "h288", "v-220.8" ] ],
@@ -138,6 +74,46 @@
     [ "uno:11", "lcd1:DIN.2 ", "green", [ "v249.6", "h-210.6" ] ],
     [ "lcd1:VCC.2 ", "uno:3.3V", "red", [ "v-57.6", "h197.4" ] ],
     [ "lcd1:GND.2 ", "uno:GND.2", "black", [ "v-48", "h197.7" ] ],
+
+    [ "uno:A4", "u1:SDA", "green", [] ],
+    [ "uno:A5", "u1:SCL", "green", [] ],
+    [ "uno:5V", "u1:VCC", "red", [] ],
+    [ "u1:GND", "uno:GND.1", "black", [] ],
+    [ "u1:A0", "uno:GND.1", "black", [] ],
+    [ "u1:A1", "uno:GND.1", "black", [] ],
+    [ "u1:A2", "uno:GND.1", "black", [] ],
+
+    [ "u1:P0", "r1:1", "green", [] ],
+    [ "r1:2", "led1:A", "green", [] ],
+    [ "led1:C", "uno:GND.1", "black", [] ],
+
+    [ "u1:P1", "r2:1", "green", [] ],
+    [ "r2:2", "led2:A", "green", [] ],
+    [ "led2:C", "uno:GND.1", "black", [] ],
+
+    [ "u1:P2", "r3:1", "green", [] ],
+    [ "r3:2", "led3:A", "green", [] ],
+    [ "led3:C", "uno:GND.1", "black", [] ],
+
+    [ "u1:P3", "r4:1", "green", [] ],
+    [ "r4:2", "led4:A", "green", [] ],
+    [ "led4:C", "uno:GND.1", "black", [] ],
+
+    [ "u1:P4", "r5:1", "green", [] ],
+    [ "r5:2", "led5:A", "green", [] ],
+    [ "led5:C", "uno:GND.1", "black", [] ],
+
+    [ "u1:P5", "r6:1", "green", [] ],
+    [ "r6:2", "led6:A", "green", [] ],
+    [ "led6:C", "uno:GND.1", "black", [] ],
+
+    [ "u1:P6", "r7:1", "green", [] ],
+    [ "r7:2", "led7:A", "green", [] ],
+    [ "led7:C", "uno:GND.1", "black", [] ],
+
+    [ "u1:P7", "r8:1", "green", [] ],
+    [ "r8:2", "led8:A", "green", [] ],
+    [ "led8:C", "uno:GND.1", "black", [] ],
 
     [ "uno:5V", "ldr1:1", "red", [] ],
     [ "ldr1:2", "r_ldr:1", "green", [] ],
@@ -149,22 +125,22 @@
     [ "uno:A1", "r_bat_10k:1", "green", [] ],
     [ "r_bat_10k:2", "uno:GND.1", "black", [] ],
 
-    [ "btn_jardim:1.l", "uno:A2", "green", [] ],
+    [ "btn_jardim:1.l", "uno:2", "green", [] ],
     [ "btn_jardim:2.l", "uno:GND.1", "black", [] ],
 
-    [ "btn_sala:1.l", "uno:A3", "green", [] ],
+    [ "btn_sala:1.l", "uno:6", "green", [] ],
     [ "btn_sala:2.l", "uno:GND.1", "black", [] ],
 
-    [ "btn_quarto:1.l", "uno:A4", "green", [] ],
+    [ "btn_quarto:1.l", "uno:7", "green", [] ],
     [ "btn_quarto:2.l", "uno:GND.1", "black", [] ],
 
-    [ "btn_banheiro:1.l", "uno:A5", "green", [] ],
+    [ "btn_banheiro:1.l", "uno:8", "green", [] ],
     [ "btn_banheiro:2.l", "uno:GND.1", "black", [] ],
 
-    [ "btn_cozinha:1.l", "uno:10", "green", [] ],
+    [ "btn_cozinha:1.l", "uno:9", "green", [] ],
     [ "btn_cozinha:2.l", "uno:GND.1", "black", [] ],
 
-    [ "btn_reset:1.l", "uno:12", "green", [] ],
+    [ "btn_reset:1.l", "uno:10", "green", [] ],
     [ "btn_reset:2.l", "uno:GND.1", "black", [] ]
   ],
   "dependencies": {}
