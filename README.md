@@ -2,9 +2,17 @@
 
 Maquete de casa sustentável com Arduino Uno, controlador de carga solar e chuveiro elétrico simulado com termostato PWM.
 
-## Abrir no Arduino IDE
+## Compilar e enviar (PlatformIO)
 
-Abra `ecohouse.ino` diretamente — o nome da pasta já corresponde ao nome do sketch, como exige o Arduino IDE.
+Projeto configurado para PlatformIO (`platformio.ini`), alvo `uno` (Arduino Uno R3). A porta serial está fixada em `COM8` — ajuste em `platformio.ini` se a placa aparecer em outra porta.
+
+```
+pio run                # compila
+pio run --target upload # compila e grava na placa
+pio device monitor      # abre o monitor serial (9600 baud)
+```
+
+O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse.ino`.
 
 ## Hardware
 
