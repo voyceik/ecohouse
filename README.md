@@ -1,6 +1,6 @@
 # Casa Inteligente com Autoconsumo Solar
 
-Maquete de casa sustentável com Arduino Uno, display Nokia 5110 (PCD8544, monocromático, sem touch) e 8 LEDs representando cômodos, simulando o consumo de energia ao longo de um ciclo dia/noite.
+Maquete de casa sustentável com Arduino Uno, display Nokia 5110 (PCD8544, monocromático, sem touch), 5 grupos de LEDs representando cômodos e 6 botões de controle manual, simulando o consumo de energia ao longo de um ciclo dia/noite.
 
 ## Compilar e enviar (PlatformIO)
 
@@ -18,10 +18,11 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 - Arduino Uno R3 + cabo USB
 - Protoboard 400 furos + jumpers macho-macho
 - Mini placa solar 5V/200mA + placa controladora de carga (bornes S+/S-, B+/B-, L+/L-)
-- Suporte 4 pilhas AA + 4 pilhas recarregáveis Ni-MH (4,8V)
+- Suporte 4 pilhas AA + 4 pilhas recarregáveis Ni-MH (4,8V nominal)
 - LDR 5516 + resistor 10kΩ (divisor de tensão, sensor dia/noite)
 - Display Nokia 5110 (PCD8544, monocromático, sem touch)
-- 8 LEDs (um por cômodo) + resistores 220Ω
+- 8 LEDs (dos 15 disponíveis) + resistores 220Ω, agrupados em 5 pinos
+- 6 botões grandes (5 de grupo + 1 de reinício), sem resistor externo (usa o pull-up interno do Arduino)
 
 ## Ligações
 
@@ -42,25 +43,35 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 | DC   | D5  |
 | CE   | D4  |
 | RST  | D3  |
-| VCC  | 3,3V |
+| VCC  | 3,3V (não 5V) |
 | GND  | GND |
 | BL (luz de fundo) | 3,3V ou GND via resistor, conforme o módulo |
 
-**LEDs dos cômodos** (anodo → resistor 220Ω → pino; catodo → GND)
-| LED | Pino |
-|---|---|
-| Jardim 1 | D2 |
-| Jardim 2 | D6 |
-| Sala | D7 |
-| Cozinha | D8 |
-| Quarto | D9 |
-| Banheiro | D10 |
-| Forno | D12 |
-| Chuveiro | A1 (usado como digital) |
+**LEDs por grupo** (cada LED: anodo → resistor 220Ω → pino; catodo → GND). Grupos com 2 LEDs ligam ambos em paralelo no mesmo pino.
+| Grupo | Pino | LEDs |
+|---|---|---|
+| Jardim | D2 | Jardim 1 + Jardim 2 |
+| Sala | D6 | Sala |
+| Quarto | D7 | Quarto |
+| Banheiro + Chuveiro | D8 | Banheiro + Chuveiro |
+| Cozinha + Forno | D9 | Cozinha + Forno |
+
+**Botões** (uma perna no pino, outra no GND — sem resistor, usa `INPUT_PULLUP`)
+| Botão | Pino | Ação |
+|---|---|---|
+| Jardim | A2 | Liga/desliga o grupo Jardim |
+| Sala | A3 | Liga/desliga o grupo Sala |
+| Quarto | A4 | Liga/desliga o grupo Quarto |
+| Banheiro + Chuveiro | A5 | Liga/desliga o grupo |
+| Cozinha + Forno | D10 | Liga/desliga o grupo |
+| Reinício | D12 | Reinicia do zero o ciclo atual (dia ou noite) |
+
+A1 fica livre (usada só como semente do gerador aleatório). D0/D1 (RX/TX) não são usados, para não atrapalhar a gravação por USB.
 
 ## Lógica
 
-- **Sensor de luz (A0) > 300** → modo diurno: acende os LEDs em sequência (todos, só jardim, jardim+cômodos, todos de novo, e uma simulação de "esquecimento" acendendo cômodo por cômodo) para ilustrar o consumo em pleno sol.
-- **Sensor de luz (A0) ≤ 300** → modo noturno: simula uma rotina real pela casa (jardim → sala → quarto → banho → cozinha → sala → quarto → dormir), acendendo só o LED do cômodo em uso e apagando o anterior — consumo consciente por bateria.
-- O display mostra o modo atual, a ação em curso e o consumo instantâneo estimado (mV, baseado em tensões aproximadas por LED).
-- Ao fim do ciclo noturno, o display mostra o **percentual de economia** comparando o consumo acumulado à noite (uso consciente) com o acumulado durante a simulação diurna (uso sem cuidado).
+- **Sensor de luz (A0) ≤ 300** → modo noturno: tour pela casa (jardim → sala → quarto → banho+chuveiro → cozinha+forno → sala → quarto), acendendo só o grupo "ocupado" da vez.
+- **Sensor de luz (A0) > 300** → modo diurno: a cada 5s sorteia uma combinação aleatória de grupos ligados, simulando uso descuidado em pleno sol.
+- **Qualquer botão de grupo**: alterna o estado daquele grupo na hora e pausa o avanço automático da sequência por 5s ("stand-by") — os outros grupos mantêm o estado atual. Passado esse tempo sem novo toque, a sequência automática continua a partir do estado já alterado (no modo diurno sorteia o próximo combo; no modo noturno segue o tour normalmente).
+- **Botão de reinício**: apaga tudo e recomeça do primeiro passo do ciclo atual (dia ou noite), sem esperar o stand-by.
+- O display mostra o modo atual, a última ação/grupo alterado, o consumo instantâneo estimado (mV) e a economia (%) acumulada comparando o consumo noturno com o diurno.
