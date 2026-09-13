@@ -1,3 +1,4 @@
+#include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
@@ -5,34 +6,77 @@
 // Instância do Display Nokia 5110 (CLK, DIN, DC, CE, RST)
 Adafruit_PCD8544 display = Adafruit_PCD8544(13, 11, 5, 4, 3);
 
-const int PIN_SOLAR = A0; // Sensor para verificar se é dia/noite
+const int PIN_SOLAR = A0;   // LDR: dia/noite
+const int PIN_BATERIA = A1; // Divisor da bateria
 
-// --- Grupos de LEDs -------------------------------------------------------
-// Pares que sempre acendem juntos (jardim, banheiro+chuveiro, cozinha+forno)
-// dividem o mesmo pino, ligados em paralelo, liberando pinos para os botões.
-enum Grupo { G_JARDIM, G_SALA, G_QUARTO, G_BANHEIRO, G_COZINHA, NUM_GRUPOS };
+// --- Expansor de I/O PCF8574 (I2C: A4=SDA, A5=SCL) -------------------------
+// Os 8 LEDs agora são individuais (sem parear em paralelo) e ficam nos pinos
+// P0-P7 do PCF8574, liberando D2/D6/D7/D8/D9 do Uno para os botões. O PCF8574
+// aciona em nível baixo (dreno aberto ~25mA); LED: 5V — resistor 220R — anodo
+// — catodo — pino do PCF8574. Escrever 0 = LED aceso, 1 = apagado.
+#define PCF8574_ADDR 0x20
 
-const int pinGrupo[NUM_GRUPOS]      = { 2, 6, 7, 8, 9 };
-const int ledsPorGrupo[NUM_GRUPOS]  = { 2, 1, 1, 2, 2 };
-const char* nomeGrupo[NUM_GRUPOS]   = { "Jardim", "Sala", "Quarto", "Banho+Chuv", "Cozinha+Forno" };
+void escreverLeds(byte estadoLigados) {
+  Wire.beginTransmission(PCF8574_ADDR);
+  Wire.write(~estadoLigados);
+  Wire.endTransmission();
+}
 
-// Mensagem de status ao apertar o botão do grupo (concordância/verbo próprios
-// de cada cômodo/aparelho: luzes usam aceso/apagado, o chuveiro e o forno
-// usam ligado/desligado).
-const char* msgLigado[NUM_GRUPOS]    = { "Jardim aceso", "Sala acesa", "Quarto aceso", "Chuveiro ligado", "Forno ligado" };
-const char* msgDesligado[NUM_GRUPOS] = { "Jardim apagado", "Sala apagada", "Quarto apagado", "Chuveiro desligado", "Forno desligado" };
+// --- Mapa dos 8 LEDs individuais -------------------------------------------
+const byte B_JARDIM1  = 1 << 0; // Verde - iluminação externa
+const byte B_JARDIM2  = 1 << 1; // Verde - iluminação externa
+const byte B_SALA     = 1 << 2; // Amarelo - cômodo
+const byte B_COZINHA  = 1 << 3; // Amarelo - cômodo
+const byte B_QUARTO   = 1 << 4; // Amarelo - cômodo
+const byte B_BANHEIRO = 1 << 5; // Amarelo - cômodo
+const byte B_FORNO    = 1 << 6; // Vermelho - carga pesada (cozinha)
+const byte B_CHUVEIRO = 1 << 7; // Vermelho - carga pesada (banheiro)
+const byte TODOS_LEDS = 0xFF;
+const int NUM_LEDS = 8;
 
-bool estadoGrupo[NUM_GRUPOS] = { false, false, false, false, false };
+// Consumo estimado por LED (mV, didático) — cargas pesadas (forno/chuveiro)
+// pesam bem mais que uma simples lâmpada de cômodo, de propósito: é o que
+// torna o "% do máximo" no display um dado interessante de comparar.
+const unsigned int consumoPorLed[NUM_LEDS] = {
+  800, 800,     // Jardim 1, Jardim 2
+  1500,         // Sala
+  1500,         // Cozinha
+  1500,         // Quarto
+  1500,         // Banheiro
+  6000,         // Forno
+  6000          // Chuveiro
+};
+
+unsigned long calcularConsumo_mV(byte estado) {
+  unsigned long mv = 0;
+  for (int i = 0; i < NUM_LEDS; i++) {
+    if (estado & (1 << i)) mv += consumoPorLed[i];
+  }
+  return mv;
+}
+
+const unsigned long CONSUMO_MAX_mV = 800 + 800 + 1500 * 4 + 6000 * 2; // todos ligados
 
 // --- Botões -----------------------------------------------------------------
-// 1 botão por grupo + 1 botão de reinício do ciclo atual. INPUT_PULLUP:
-// pressionado = LOW. Nenhum usa D0/D1 para não atrapalhar a gravação por USB.
-const int pinBotaoGrupo[NUM_GRUPOS] = { A2, A3, A4, A5, 10 };
-const int PIN_BOTAO_RESET = 12;
+// 1 botão por LED/par + 1 de reinício. INPUT_PULLUP: pressionado = LOW.
+// D0/D1 (RX/TX) e A4/A5 (I2C do PCF8574) ficam de fora de propósito.
+const int NUM_BOTOES_GRUPO = 5;
+const int pinBotaoGrupo[NUM_BOTOES_GRUPO] = { 2, 6, 7, 8, 9 };
+const byte maskGrupoBtn[NUM_BOTOES_GRUPO] = {
+  B_JARDIM1 | B_JARDIM2,   // Jardim (as 2 luzes externas juntas)
+  B_SALA,
+  B_QUARTO,
+  B_BANHEIRO | B_CHUVEIRO, // Banheiro + chuveiro juntos
+  B_COZINHA | B_FORNO      // Cozinha + forno juntos
+};
+const char* msgLigadoBtn[NUM_BOTOES_GRUPO]    = { "Jardim aceso", "Sala acesa", "Quarto aceso", "Chuveiro ligado", "Forno ligado" };
+const char* msgDesligadoBtn[NUM_BOTOES_GRUPO] = { "Jardim apagado", "Sala apagada", "Quarto apagado", "Chuveiro desligado", "Forno desligado" };
 
-bool leituraAnteriorGrupo[NUM_GRUPOS] = { HIGH, HIGH, HIGH, HIGH, HIGH };
-bool estadoEstavelGrupo[NUM_GRUPOS]   = { HIGH, HIGH, HIGH, HIGH, HIGH };
-unsigned long debounceGrupo[NUM_GRUPOS] = { 0, 0, 0, 0, 0 };
+const int PIN_BOTAO_RESET = 10;
+
+bool leituraAnteriorGrupo[NUM_BOTOES_GRUPO] = { HIGH, HIGH, HIGH, HIGH, HIGH };
+bool estadoEstavelGrupo[NUM_BOTOES_GRUPO]   = { HIGH, HIGH, HIGH, HIGH, HIGH };
+unsigned long debounceGrupo[NUM_BOTOES_GRUPO] = { 0, 0, 0, 0, 0 };
 
 bool leituraAnteriorReset = HIGH;
 bool estadoEstavelReset   = HIGH;
@@ -40,43 +84,101 @@ unsigned long debounceReset = 0;
 
 const unsigned long DEBOUNCE_MS = 40;
 
-// Qualquer botão de grupo pausa o avanço automático por 5s ("stand-by");
-// o toggle em si é imediato, só o avanço da sequência é que espera.
-unsigned long standbyAte = 0;
-const unsigned long STANDBY_MS = 5000;
-
-// --- Consumo simulado ---------------------------------------------------
-const int V_LED = 2000; // mV aproximados por LED aceso (estimativa didática)
-
-unsigned long consumoTotalMax_mV = 0; // capturado com todos os LEDs ligados
-
-String mensagemAtual = "Iniciando";
-
-// --- Tensão da bateria ----------------------------------------------------
-// Divisor 100k/10k no pino A1 (100k do B+/L+ até o nó, 10k do nó ao GND),
-// lido com a referência interna de 1,1V — o Arduino é alimentado pela própria
-// bateria, então medir com a referência padrão (AVcc) só daria uma razão
-// constante em relação a si mesma, não a tensão real.
-const int PIN_BATERIA = A1;
+// --- Tensão da bateria ------------------------------------------------------
+// Divisor 100k/10k em A1, lido com a referência interna de 1,1V (o Arduino é
+// alimentado pela própria bateria, então a referência padrão AVcc só daria
+// uma razão constante em relação a si mesma, não a tensão real).
 const float BAT_DIVISOR = 11.0; // (100k + 10k) / 10k
 const float VREF_INTERNA = 1.1;
 
-// --- Abertura de cada ciclo: acende tudo e guarda o consumo máximo -------
-bool emAbertura = false;
-bool modoNoturnoPendente = false;
-unsigned long aberturaAte = 0;
-const unsigned long ABERTURA_MS = 2500;
+float lerTensaoBateria() {
+  analogReference(INTERNAL);
+  analogRead(PIN_BATERIA); // descarta: 1a leitura após trocar referência não é confiável
+  delay(2);
+  int bruto = analogRead(PIN_BATERIA);
+  analogReference(DEFAULT);
+  analogRead(PIN_SOLAR);   // assenta de volta pra referência de 5V antes do próximo uso
+  return (bruto * VREF_INTERNA / 1023.0) * BAT_DIVISOR;
+}
 
-// --- Sequência noturna: tour pela casa, um cômodo "ocupado" por vez -------
-const int TOUR_LEN = 7;
-const Grupo tourGrupo[TOUR_LEN] = { G_JARDIM, G_SALA, G_QUARTO, G_BANHEIRO, G_COZINHA, G_SALA, G_QUARTO };
-const unsigned long tourDuracao[TOUR_LEN] = { 5000, 4000, 4000, 15000, 4000, 4000, 4000 };
-int tourPasso = 0;
-unsigned long tourProximaTroca = 0;
+// --- Roteiro determinístico dia/noite ---------------------------------------
+// Cada evento diz "a partir deste instante (ms, desde o início do ciclo do
+// modo atual), os LEDs ficam neste estado". O tempo decorrido "dá a volta"
+// (módulo) na duração total, então o roteiro se repete em loop.
+struct Evento {
+  unsigned long t;
+  byte mascara;
+  const char* label;
+};
 
-// --- Sequência diurna: combinações aleatórias (demo de sol em excesso) ----
-unsigned long diaProximaTroca = 0;
-const unsigned long DIA_PASSO_MS = 5000;
+// Ciclo DIURNO: uso "descuidado", combinações fixas, terminando esquecendo
+// luzes acesas pela casa (jardim + sala).
+const Evento EVENTOS_DIA[] = {
+  { 0,     TODOS_LEDS,                                                                    "Todos (base)" },
+  { 15000, (byte)(B_JARDIM1 | B_JARDIM2),                                                  "So jardim" },
+  { 20000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA | B_COZINHA | B_QUARTO | B_BANHEIRO),     "Jardim+comodos" },
+  { 25000, TODOS_LEDS,                                                                     "Todos ligados" },
+  { 30000, (byte)(TODOS_LEDS & ~B_COZINHA),                                                "Sai cozinha" },
+  { 31000, (byte)(TODOS_LEDS & ~B_COZINHA & ~B_FORNO),                                     "Sai forno" },
+  { 32000, (byte)(TODOS_LEDS & ~B_COZINHA & ~B_FORNO & ~B_QUARTO),                         "Sai quarto" },
+  { 33000, (byte)(TODOS_LEDS & ~B_COZINHA & ~B_FORNO & ~B_QUARTO & ~B_BANHEIRO),           "Sai banheiro" },
+  { 34000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA),                                         "Esqueceu aceso" },
+};
+const int N_EVENTOS_DIA = sizeof(EVENTOS_DIA) / sizeof(Evento);
+const unsigned long DURACAO_DIA = 39000; // 34000 + 5s de espera antes de repetir
+
+// Ciclo NOTURNO: uso "consciente" na bateria, andando de cômodo em cômodo e
+// só apagando o anterior 1s depois de acender o próximo. Banheiro+chuveiro e
+// cozinha+forno seguem a simulação de "entrar, usar, sair" (aparelho liga 3s
+// depois do cômodo, e o cômodo só apaga 2s depois do aparelho desligar).
+const Evento EVENTOS_NOITE[] = {
+  { 0,     (byte)(B_JARDIM1),                                             "Jardim 1" },
+  { 2000,  (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA),                        "Sala" },
+  { 7000,  (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA | B_QUARTO),             "Indo p/ quarto" },
+  { 8000,  (byte)(B_JARDIM1 | B_JARDIM2 | B_QUARTO),                      "Quarto" },
+  { 12000, (byte)(B_JARDIM1 | B_JARDIM2 | B_QUARTO | B_BANHEIRO),         "Banheiro" },
+  { 13000, (byte)(B_JARDIM1 | B_JARDIM2 | B_BANHEIRO),                    "Banheiro" },
+  { 15000, (byte)(B_JARDIM1 | B_JARDIM2 | B_BANHEIRO | B_CHUVEIRO),       "Chuveiro on" },
+  { 25000, (byte)(B_JARDIM1 | B_JARDIM2 | B_BANHEIRO),                    "Chuveiro off" },
+  { 27000, (byte)(B_JARDIM1 | B_JARDIM2 | B_QUARTO),                      "Volta ao quarto" },
+  { 32000, (byte)(B_JARDIM1 | B_JARDIM2 | B_QUARTO | B_COZINHA),          "Cozinha+forno" },
+  { 33000, (byte)(B_JARDIM1 | B_JARDIM2 | B_COZINHA),                     "Cozinha+forno" },
+  { 35000, (byte)(B_JARDIM1 | B_JARDIM2 | B_COZINHA | B_FORNO),           "Forno ligado" },
+  { 45000, (byte)(B_JARDIM1 | B_JARDIM2 | B_COZINHA),                     "Forno desligado" },
+  { 47000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA),                        "Sala (15s)" },
+  { 62000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA | B_COZINHA),            "Cozinha s/forno" },
+  { 63000, (byte)(B_JARDIM1 | B_JARDIM2 | B_COZINHA),                     "Cozinha s/forno" },
+  { 67000, (byte)(B_JARDIM1 | B_JARDIM2 | B_COZINHA | B_SALA),            "Sala" },
+  { 68000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA),                        "Sala" },
+  { 72000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA | B_QUARTO),             "Quarto" },
+  { 73000, (byte)(B_JARDIM1 | B_JARDIM2 | B_QUARTO),                      "Quarto" },
+  { 77000, (byte)0,                                                       "Dormindo..." },
+};
+const int N_EVENTOS_NOITE = sizeof(EVENTOS_NOITE) / sizeof(Evento);
+const unsigned long DURACAO_NOITE = 82000; // 77000 + 5s de espera antes de repetir
+
+byte calcularEstadoTabela(bool modoNoturno, unsigned long decorrido, const char** labelOut) {
+  const Evento* tabela = modoNoturno ? EVENTOS_NOITE : EVENTOS_DIA;
+  int n = modoNoturno ? N_EVENTOS_NOITE : N_EVENTOS_DIA;
+  unsigned long duracao = modoNoturno ? DURACAO_NOITE : DURACAO_DIA;
+  unsigned long t = decorrido % duracao;
+
+  int idx = 0;
+  for (int i = 0; i < n; i++) {
+    if (tabela[i].t <= t) idx = i; else break;
+  }
+  *labelOut = tabela[idx].label;
+  return tabela[idx].mascara;
+}
+
+// --- Estado ao vivo -----------------------------------------------------
+byte estadoAtual = 0;
+const char* mensagemAtual = "Iniciando";
+
+unsigned long cicloInicio = 0;       // referência t=0 do roteiro do modo atual
+unsigned long standbyAte = 0;        // botão pausa o roteiro até aqui ("stand-by")
+unsigned long standbyIniciadoEm = 0; // quando o stand-by atual começou (0 = não está em stand-by)
+const unsigned long STANDBY_MS = 5000;
 
 bool modoNoturnoAnterior = false;
 bool primeiraLeitura = true;
@@ -84,131 +186,54 @@ bool primeiraLeitura = true;
 unsigned long ultimaAtualizacaoDisplay = 0;
 const unsigned long DISPLAY_INTERVALO_MS = 150;
 
-void apagarTudo() {
-  for (int i = 0; i < NUM_GRUPOS; i++) estadoGrupo[i] = false;
+// Reinicia o roteiro do modo atual do zero (troca de dia/noite ou botão reset).
+void iniciarCiclo(bool modoNoturno) {
+  cicloInicio = millis();
+  standbyAte = 0;
+  standbyIniciadoEm = 0;
+  estadoAtual = calcularEstadoTabela(modoNoturno, 0, &mensagemAtual);
 }
 
-void aplicarEstados() {
-  for (int i = 0; i < NUM_GRUPOS; i++) {
-    digitalWrite(pinGrupo[i], estadoGrupo[i] ? HIGH : LOW);
-  }
-}
-
-int calcularConsumoAtual_mV() {
-  int mv = 0;
-  for (int i = 0; i < NUM_GRUPOS; i++) {
-    if (estadoGrupo[i]) mv += V_LED * ledsPorGrupo[i];
-  }
-  return mv;
-}
-
-float lerTensaoBateria() {
-  analogReference(INTERNAL);
-  analogRead(PIN_BATERIA); // descarta: 1a leitura após trocar a referência não é confiável
-  delay(2);
-  int bruto = analogRead(PIN_BATERIA);
-  analogReference(DEFAULT);
-  analogRead(PIN_SOLAR);   // idem, assenta de volta pra referência de 5V antes do próximo uso
-  return (bruto * VREF_INTERNA / 1023.0) * BAT_DIVISOR;
-}
-
-void iniciarTourNoturno() {
-  apagarTudo();
-  tourPasso = 0;
-  estadoGrupo[tourGrupo[0]] = true;
-  tourProximaTroca = millis() + tourDuracao[0];
-  mensagemAtual = String(nomeGrupo[tourGrupo[0]]);
-}
-
-void avancarTourNoturno() {
-  unsigned long agora = millis();
-  if (agora < standbyAte) return;       // em stand-by: aguarda
-  if (agora < tourProximaTroca) return; // ainda no mesmo passo
-
-  Grupo passoAnterior = tourGrupo[tourPasso];
-  tourPasso = (tourPasso + 1) % TOUR_LEN;
-  Grupo passoAtual = tourGrupo[tourPasso];
-
-  if (passoAnterior != passoAtual) estadoGrupo[passoAnterior] = false;
-  estadoGrupo[passoAtual] = true;
-
-  tourProximaTroca = agora + tourDuracao[tourPasso];
-  mensagemAtual = String(nomeGrupo[passoAtual]);
-}
-
-void sortearComboDiurno() {
-  for (int i = 0; i < NUM_GRUPOS; i++) estadoGrupo[i] = random(0, 2);
-  mensagemAtual = "Combo aleatorio";
-  diaProximaTroca = millis() + DIA_PASSO_MS;
-}
-
-void iniciarDiurno() {
-  sortearComboDiurno();
-}
-
-void avancarDiurno() {
-  unsigned long agora = millis();
-  if (agora < standbyAte) return;
-  if (agora < diaProximaTroca) return;
-  sortearComboDiurno();
-}
-
-// Acende todos os LEDs, guarda o consumo máximo em memória e, depois de
-// ABERTURA_MS, entra na sequência normal do modo (tour à noite, sorteio de dia).
-void iniciarAbertura(bool modoNoturno) {
-  for (int i = 0; i < NUM_GRUPOS; i++) estadoGrupo[i] = true;
-  consumoTotalMax_mV = calcularConsumoAtual_mV();
-  mensagemAtual = "Todos ligados";
-  emAbertura = true;
-  modoNoturnoPendente = modoNoturno;
-  aberturaAte = millis() + ABERTURA_MS;
-}
-
-void reiniciarCicloAtual(bool modoNoturno) {
-  iniciarAbertura(modoNoturno);
-  standbyAte = millis(); // sem pausa extra além da própria abertura
-}
-
-void lerBotoesDeGrupo() {
-  unsigned long agora = millis();
-  for (int i = 0; i < NUM_GRUPOS; i++) {
+void lerBotoesDeGrupo(unsigned long agora) {
+  for (int i = 0; i < NUM_BOTOES_GRUPO; i++) {
     bool leitura = digitalRead(pinBotaoGrupo[i]);
     if (leitura != leituraAnteriorGrupo[i]) debounceGrupo[i] = agora;
 
     if ((agora - debounceGrupo[i]) > DEBOUNCE_MS && leitura != estadoEstavelGrupo[i]) {
       estadoEstavelGrupo[i] = leitura;
-      if (estadoEstavelGrupo[i] == LOW) { // borda de descida = botão pressionado
-        estadoGrupo[i] = !estadoGrupo[i];
+      if (leitura == LOW) { // borda de descida = botão pressionado
+        bool jaEmStandby = (agora < standbyAte);
+        bool ligado = (estadoAtual & maskGrupoBtn[i]) != 0;
+
+        if (ligado) estadoAtual &= ~maskGrupoBtn[i];
+        else        estadoAtual |= maskGrupoBtn[i];
+
         standbyAte = agora + STANDBY_MS;
-        mensagemAtual = estadoGrupo[i] ? msgLigado[i] : msgDesligado[i];
+        if (!jaEmStandby) standbyIniciadoEm = agora;
+        mensagemAtual = ligado ? msgDesligadoBtn[i] : msgLigadoBtn[i];
       }
     }
     leituraAnteriorGrupo[i] = leitura;
   }
 }
 
-void lerBotaoReset(bool modoNoturno) {
-  unsigned long agora = millis();
+void lerBotaoReset(unsigned long agora, bool modoNoturno) {
   bool leitura = digitalRead(PIN_BOTAO_RESET);
   if (leitura != leituraAnteriorReset) debounceReset = agora;
 
   if ((agora - debounceReset) > DEBOUNCE_MS && leitura != estadoEstavelReset) {
     estadoEstavelReset = leitura;
-    if (estadoEstavelReset == LOW) {
-      reiniciarCicloAtual(modoNoturno);
+    if (leitura == LOW) {
+      iniciarCiclo(modoNoturno);
     }
   }
   leituraAnteriorReset = leitura;
 }
 
 void atualizarDisplay(bool modoNoturno) {
-  int consumo = calcularConsumoAtual_mV();
+  unsigned long consumo = calcularConsumo_mV(estadoAtual);
   float tensaoBateria = lerTensaoBateria();
-
-  float percentualMax = 0;
-  if (consumoTotalMax_mV > 0) {
-    percentualMax = (100.0 * consumo) / (float)consumoTotalMax_mV;
-  }
+  float percentualMax = (100.0 * consumo) / (float)CONSUMO_MAX_mV;
 
   display.clearDisplay();
   display.setTextSize(1);
@@ -238,45 +263,44 @@ void atualizarDisplay(bool modoNoturno) {
 }
 
 void setup() {
-  for (int i = 0; i < NUM_GRUPOS; i++) {
-    pinMode(pinGrupo[i], OUTPUT);
+  Wire.begin();
+  escreverLeds(0); // tudo apagado
+
+  for (int i = 0; i < NUM_BOTOES_GRUPO; i++) {
     pinMode(pinBotaoGrupo[i], INPUT_PULLUP);
   }
   pinMode(PIN_BOTAO_RESET, INPUT_PULLUP);
 
   display.begin();
   display.setContrast(50);
-
-  randomSeed(analogRead(PIN_BATERIA));
-
-  apagarTudo();
-  aplicarEstados();
 }
 
 void loop() {
   unsigned long agora = millis();
-
   bool modoNoturno = (analogRead(PIN_SOLAR) <= 300);
 
-  lerBotoesDeGrupo();
-  lerBotaoReset(modoNoturno);
-
   if (modoNoturno != modoNoturnoAnterior || primeiraLeitura) {
-    reiniciarCicloAtual(modoNoturno);
+    iniciarCiclo(modoNoturno);
     modoNoturnoAnterior = modoNoturno;
     primeiraLeitura = false;
   }
 
-  if (emAbertura) {
-    if (agora >= aberturaAte) {
-      emAbertura = false;
-      if (modoNoturnoPendente) iniciarTourNoturno(); else iniciarDiurno();
-    }
-  } else {
-    if (modoNoturno) avancarTourNoturno(); else avancarDiurno();
+  lerBotoesDeGrupo(agora);
+  lerBotaoReset(agora, modoNoturno);
+
+  // Fim do stand-by: "encolhe" a referência de tempo pelo tanto que ficou
+  // pausado, para o roteiro continuar exatamente de onde parou.
+  if (standbyIniciadoEm != 0 && agora >= standbyAte) {
+    cicloInicio += (agora - standbyIniciadoEm);
+    standbyIniciadoEm = 0;
   }
 
-  aplicarEstados();
+  if (agora >= standbyAte) {
+    estadoAtual = calcularEstadoTabela(modoNoturno, agora - cicloInicio, &mensagemAtual);
+  }
+  // Em stand-by: mantém estadoAtual/mensagemAtual como o botão deixou.
+
+  escreverLeds(estadoAtual);
 
   if (agora - ultimaAtualizacaoDisplay >= DISPLAY_INTERVALO_MS) {
     ultimaAtualizacaoDisplay = agora;

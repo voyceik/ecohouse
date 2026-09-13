@@ -1,6 +1,6 @@
 # Casa Inteligente com Autoconsumo Solar
 
-Maquete de casa sustentável com Arduino Uno, display Nokia 5110 (PCD8544, monocromático, sem touch), 5 grupos de LEDs representando cômodos e 6 botões de controle manual, simulando o consumo de energia ao longo de um ciclo dia/noite.
+Maquete de casa sustentável com Arduino Uno, display Nokia 5110 (PCD8544, monocromático, sem touch), 8 LEDs individuais representando cômodos/aparelhos e 6 botões de controle manual, simulando um roteiro fixo de consumo de energia ao longo de um ciclo dia/noite.
 
 ## Compilar e enviar (PlatformIO)
 
@@ -11,7 +11,7 @@ pio run                 # compila
 pio run --target upload # compila e grava na placa
 ```
 
-O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse.ino`.
+O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse.ino`. Não usa nenhuma lib nova além do Nokia 5110 — o expansor de LEDs é controlado via `Wire.h` (já vem com o Arduino core).
 
 ## Hardware
 
@@ -21,7 +21,8 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 - Suporte 4 pilhas AA + 4 pilhas recarregáveis Ni-MH (4,8V nominal)
 - LDR 5516 + resistor 10kΩ (divisor de tensão, sensor dia/noite)
 - Display Nokia 5110 (PCD8544, monocromático, sem touch)
-- 8 LEDs (dos 15 disponíveis) + resistores 220Ω, agrupados em 5 pinos
+- **Expansor de I/O PCF8574** (I2C) — necessário para os 8 LEDs individuais sem esgotar os pinos digitais do Uno
+- 8 LEDs individuais (dos 15 disponíveis: 2 verdes, 4 amarelos, 2 vermelhos) + resistores 220Ω
 - 6 botões grandes (5 de grupo + 1 de reinício), sem resistor externo (usa o pull-up interno do Arduino)
 - Resistores 100kΩ + 10kΩ (divisor de tensão para medir a bateria em A1)
 
@@ -33,7 +34,7 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 - L- → GND do Arduino / trilha terra da protoboard
 - L+ → trilha +5V da protoboard / pino 5V do Arduino
 
-**Sensor (entrada analógica)**
+**Sensor de luz (entrada analógica)**
 - LDR solar (dia/noite): +5V — LDR — A0 — resistor 10kΩ — GND
 
 **Tensão da bateria (entrada analógica)** — ⚠️ ainda não montado fisicamente, o firmware já espera por ele
@@ -53,32 +54,68 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 | GND  | GND |
 | BL (luz de fundo) | 3,3V ou GND via resistor, conforme o módulo |
 
-**LEDs por grupo** (cada LED: anodo → resistor 220Ω → pino; catodo → GND). Grupos com 2 LEDs ligam ambos em paralelo no mesmo pino.
-| Grupo | Pino | LEDs |
-|---|---|---|
-| Jardim | D2 | Jardim 1 + Jardim 2 |
-| Sala | D6 | Sala |
-| Quarto | D7 | Quarto |
-| Banheiro + Chuveiro | D8 | Banheiro + Chuveiro |
-| Cozinha + Forno | D9 | Cozinha + Forno |
+**Expansor PCF8574 (I2C)**
+| Pino do PCF8574 | Pino do Arduino |
+|---|---|
+| SDA | A4 |
+| SCL | A5 |
+| VCC | 5V |
+| GND | GND |
+| A0, A1, A2 (endereço) | GND (endereço 0x20) |
+
+**LEDs individuais** (cada LED: PCF8574 → resistor 220Ω → anodo; catodo → GND. O PCF8574 aciona em nível baixo: escrever 0 acende, 1 apaga)
+| LED | Pino do PCF8574 (P0-P7) | Cor | Uso |
+|---|---|---|---|
+| Jardim 1 | P0 | Verde | Iluminação externa |
+| Jardim 2 | P1 | Verde | Iluminação externa |
+| Sala | P2 | Amarelo | Cômodo |
+| Cozinha | P3 | Amarelo | Cômodo |
+| Quarto | P4 | Amarelo | Cômodo |
+| Banheiro | P5 | Amarelo | Cômodo |
+| Forno | P6 | Vermelho | Carga pesada (cozinha) |
+| Chuveiro | P7 | Vermelho | Carga pesada (banheiro) |
 
 **Botões** (uma perna no pino, outra no GND — sem resistor, usa `INPUT_PULLUP`)
 | Botão | Pino | Ação |
 |---|---|---|
-| Jardim | A2 | Liga/desliga o grupo Jardim |
-| Sala | A3 | Liga/desliga o grupo Sala |
-| Quarto | A4 | Liga/desliga o grupo Quarto |
-| Banheiro + Chuveiro | A5 | Liga/desliga o grupo |
-| Cozinha + Forno | D10 | Liga/desliga o grupo |
-| Reinício | D12 | Reinicia do zero o ciclo atual (dia ou noite) |
+| Jardim | D2 | Liga/desliga Jardim 1 + Jardim 2 juntos |
+| Sala | D6 | Liga/desliga Sala |
+| Quarto | D7 | Liga/desliga Quarto |
+| Banheiro + Chuveiro | D8 | Liga/desliga os dois juntos |
+| Cozinha + Forno | D9 | Liga/desliga os dois juntos |
+| Reinício | D10 | Reinicia do zero o ciclo atual (dia ou noite) |
 
-D0/D1 (RX/TX) não são usados, para não atrapalhar a gravação por USB.
+D0/D1 (RX/TX) não são usados, para não atrapalhar a gravação por USB. A4/A5 são dedicados ao I2C do PCF8574 (por isso os botões não usam mais os pinos analógicos).
 
 ## Lógica
 
-- **Início de cada ciclo (troca dia/noite ou botão de reinício)**: acende todos os LEDs por ~2,5s e guarda esse valor como consumo máximo (100% de referência) — é contra ele que a % em tempo real é calculada. Depois disso entra na sequência normal do modo.
-- **Sensor de luz (A0) ≤ 300** → modo noturno: tour pela casa (jardim → sala → quarto → banho+chuveiro → cozinha+forno → sala → quarto), acendendo só o grupo "ocupado" da vez.
-- **Sensor de luz (A0) > 300** → modo diurno: a cada 5s sorteia uma combinação aleatória de grupos ligados, simulando uso descuidado em pleno sol.
-- **Qualquer botão de grupo**: alterna o estado daquele grupo na hora e pausa o avanço automático da sequência por 5s ("stand-by") — os outros grupos mantêm o estado atual. Passado esse tempo sem novo toque, a sequência automática continua a partir do estado já alterado (no modo diurno sorteia o próximo combo; no modo noturno segue o tour normalmente). A mensagem no display mostra o status exato do grupo alterado (ex.: "Sala acesa"/"Sala apagada", "Chuveiro ligado"/"Chuveiro desligado", "Forno ligado"/"Forno desligado").
-- **Botão de reinício**: reinicia do zero o ciclo atual (dia ou noite), passando de novo pela abertura "todos ligados".
-- **Display em tempo real** mostra: modo atual, última ação/status, consumo instantâneo estimado (mV), tensão da bateria (V) e o % desse consumo em relação ao máximo (todos os LEDs ligados).
+O ciclo é um **roteiro fixo por horário**, não mais aleatório — cada modo (dia/noite) tem uma tabela de eventos com o instante (ms desde o início do ciclo) e o estado dos 8 LEDs naquele instante; o `millis()` decorrido "dá a volta" na duração total do roteiro, repetindo-o.
+
+**Sensor de luz (A0) > 300 → modo DIURNO** ("uso descuidado"), ciclos de 5s (exceto onde indicado):
+1. Acende **todos os 8 LEDs por 15s** — é a referência de consumo máximo mostrada no display.
+2. Só o jardim aceso.
+3. Jardim + todos os cômodos (sala, cozinha, quarto, banheiro).
+4. Todos ligados de novo (+ forno + chuveiro).
+5. "Esquece" as luzes: apaga cozinha, forno, quarto e banheiro em sequência (1s entre cada), deixando só jardim + sala acesos — e o ciclo recomeça do passo 1.
+
+**Sensor de luz (A0) ≤ 300 → modo NOTURNO** ("uso consciente", rodando na bateria), andando de cômodo em cômodo e só apagando o anterior 1s depois de acender o próximo:
+1. Jardim 1, depois Jardim 2 (as duas luzes externas ficam acesas o resto do ciclo, e só apagam no passo final).
+2. Sala.
+3. Quarto.
+4. Banheiro + chuveiro — simula alguém tomando banho: o chuveiro liga só 3s depois do banheiro, fica 10s ligado e o banheiro apaga 2s depois do chuveiro desligar (ciclo de 15s no total).
+5. Volta para o quarto.
+6. Cozinha + forno — mesma simulação de "entrar, usar, sair": forno liga 3s depois da cozinha, fica 10s ligado e a cozinha apaga 2s depois (15s no total).
+7. Sala por 15s.
+8. Cozinha sem forno (só a luz, sem "cozinhar").
+9. Sala, depois quarto.
+10. Apaga tudo, inclusive o jardim — "dormindo" — e o ciclo recomeça do passo 1.
+
+**Simulação de chuveiro/forno**: em qualquer ponto do roteiro em que o cômodo liga junto com o aparelho pesado (banheiro→chuveiro, cozinha→forno), o aparelho não acende junto — ele espera 3s (a "pessoa entrou no cômodo"), fica ligado 10s (o "banho"/"uso do forno") e o cômodo em si só apaga 2s depois do aparelho desligar (a "pessoa sai").
+
+**Qualquer botão de grupo**: alterna o(s) LED(s) daquele grupo na hora (liga/desliga simples) e pausa o roteiro automático por 5s ("stand-by") — os outros LEDs mantêm o estado atual. Passado esse tempo sem novo toque, o roteiro automático retoma exatamente do ponto (do tempo) em que parou, já refletindo o estado alterado pelo botão até o próximo evento da tabela corrigir aquele LED. A mensagem no display mostra o status exato do grupo alterado (ex.: "Sala acesa"/"Sala apagada", "Chuveiro ligado"/"Chuveiro desligado", "Forno ligado"/"Forno desligado").
+
+**Botão de reinício**: reinicia do zero (t=0) o roteiro do modo atual (dia ou noite).
+
+**Consumo estimado**: cada LED tem um valor de consumo (mV, didático) — 800 para as luzes de jardim, 1500 para as luzes de cômodo, 6000 para forno/chuveiro (cargas pesadas, de propósito bem maiores, para o "% do máximo" no display fazer sentido comparando uma lâmpada com um chuveiro/forno). O máximo (todos ligados) é uma constante calculada uma vez.
+
+**Display em tempo real** mostra: modo atual, o passo/ação atual do roteiro (ou o status do botão pressionado), consumo instantâneo estimado (mV), tensão da bateria (V) e o % desse consumo em relação ao máximo (todos os LEDs ligados).
