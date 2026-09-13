@@ -1,15 +1,14 @@
 # Casa Inteligente com Autoconsumo Solar
 
-Maquete de casa sustentável com Arduino Uno, controlador de carga solar e chuveiro elétrico simulado com termostato PWM.
+Maquete de casa sustentável com Arduino Uno, display Nokia 5110 (PCD8544, monocromático, sem touch) e 8 LEDs representando cômodos, simulando o consumo de energia ao longo de um ciclo dia/noite.
 
 ## Compilar e enviar (PlatformIO)
 
-Projeto configurado para PlatformIO (`platformio.ini`), alvo `uno` (Arduino Uno R3). A porta serial está fixada em `COM8` — ajuste em `platformio.ini` se a placa aparecer em outra porta.
+Projeto configurado para PlatformIO (`platformio.ini`), alvo `uno` (Arduino Uno R3). A porta está fixada em `COM8` — ajuste em `platformio.ini` se a placa aparecer em outra porta.
 
 ```
-pio run                # compila
+pio run                 # compila
 pio run --target upload # compila e grava na placa
-pio device monitor      # abre o monitor serial (9600 baud)
 ```
 
 O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse.ino`.
@@ -20,8 +19,9 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 - Protoboard 400 furos + jumpers macho-macho
 - Mini placa solar 5V/200mA + placa controladora de carga (bornes S+/S-, B+/B-, L+/L-)
 - Suporte 4 pilhas AA + 4 pilhas recarregáveis Ni-MH (4,8V)
-- 2x LDR 5516 + resistores 10kΩ (divisores de tensão)
-- LEDs verde, amarelo, vermelho + resistores 220Ω
+- LDR 5516 + resistor 10kΩ (divisor de tensão, sensor dia/noite)
+- Display Nokia 5110 (PCD8544, monocromático, sem touch)
+- 8 LEDs (um por cômodo) + resistores 220Ω
 
 ## Ligações
 
@@ -31,19 +31,36 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 - L- → GND do Arduino / trilha terra da protoboard
 - L+ → trilha +5V da protoboard / pino 5V do Arduino
 
-**Sensores (entradas analógicas)**
-- LDR solar: +5V — LDR — A0 — resistor 10kΩ — GND
-- LDR boiler (simula temperatura da água): +5V — LDR — A1 — resistor 10kΩ — GND
+**Sensor (entrada analógica)**
+- LDR solar (dia/noite): +5V — LDR — A0 — resistor 10kΩ — GND
 
-**Atuadores (saídas digitais)**
-- LED verde (energia limpa ativa): D7 → resistor 220Ω → anodo; catodo → GND
-- LED amarelo (climatização/cooler): D9 → resistor 220Ω → anodo; catodo → GND
-- LED vermelho (chuveiro, PWM): D10 → resistor 220Ω → anodo; catodo → GND
+**Display Nokia 5110 (SPI)**
+| Pino do display | Pino do Arduino |
+|---|---|
+| CLK  | D13 |
+| DIN  | D11 |
+| DC   | D5  |
+| CE   | D4  |
+| RST  | D3  |
+| VCC  | 3,3V |
+| GND  | GND |
+| BL (luz de fundo) | 3,3V ou GND via resistor, conforme o módulo |
+
+**LEDs dos cômodos** (anodo → resistor 220Ω → pino; catodo → GND)
+| LED | Pino |
+|---|---|
+| Jardim 1 | D2 |
+| Jardim 2 | D6 |
+| Sala | D7 |
+| Cozinha | D8 |
+| Quarto | D9 |
+| Banheiro | D10 |
+| Forno | D12 |
+| Chuveiro | A1 (usado como digital) |
 
 ## Lógica
 
-- Sol > 60% → LED amarelo liga (climatização usa excesso de geração solar)
-- Temp. boiler < 37°C → LED vermelho acende proporcionalmente (PWM) simulando o chuveiro completando o aquecimento
-- Temp. boiler ≥ 37°C → chuveiro desligado (0% de energia da tomada)
-
-Monitor Serial a 9600 baud mostra % de sol, temperatura do boiler e potência PWM do chuveiro a cada 500ms.
+- **Sensor de luz (A0) > 300** → modo diurno: acende os LEDs em sequência (todos, só jardim, jardim+cômodos, todos de novo, e uma simulação de "esquecimento" acendendo cômodo por cômodo) para ilustrar o consumo em pleno sol.
+- **Sensor de luz (A0) ≤ 300** → modo noturno: simula uma rotina real pela casa (jardim → sala → quarto → banho → cozinha → sala → quarto → dormir), acendendo só o LED do cômodo em uso e apagando o anterior — consumo consciente por bateria.
+- O display mostra o modo atual, a ação em curso e o consumo instantâneo estimado (mV, baseado em tensões aproximadas por LED).
+- Ao fim do ciclo noturno, o display mostra o **percentual de economia** comparando o consumo acumulado à noite (uso consciente) com o acumulado durante a simulação diurna (uso sem cuidado).
