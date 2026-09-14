@@ -45,11 +45,11 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 **Display Nokia 5110 (SPI)**
 | Pino do display | Pino do Arduino |
 |---|---|
-| CLK  | D13 |
-| DIN  | D11 |
-| DC   | D5  |
-| CE   | D4  |
-| RST  | D3  |
+| CLK  | D8  |
+| DIN  | D9  |
+| DC   | D10 |
+| CE   | D11 |
+| RST  | D12 |
 | VCC  | 3,3V (não 5V) |
 | GND  | GND |
 | BL (luz de fundo) | 3,3V ou GND via resistor, conforme o módulo |
@@ -79,13 +79,13 @@ O sketch também pode ser aberto direto no Arduino IDE a partir de `src/ecohouse
 | Botão | Pino | Ação |
 |---|---|---|
 | Jardim | D2 | Liga/desliga Jardim 1 + Jardim 2 juntos |
-| Sala | D6 | Liga/desliga Sala |
-| Quarto | D7 | Liga/desliga Quarto |
-| Banheiro + Chuveiro | D8 | Liga/desliga os dois juntos |
-| Cozinha + Forno | D9 | Liga/desliga os dois juntos |
-| Reinício | D10 | Reinicia do zero o ciclo atual (dia ou noite) |
+| Sala | D3 | Liga/desliga Sala |
+| Quarto | D4 | Liga/desliga Quarto |
+| Banheiro + Chuveiro | D5 | Liga/desliga os dois juntos |
+| Cozinha + Forno | D6 | Liga/desliga os dois juntos |
+| Reinício | D7 | Reinicia do zero o ciclo atual (dia ou noite) |
 
-D0/D1 (RX/TX) não são usados, para não atrapalhar a gravação por USB. A4/A5 são dedicados ao I2C do PCF8574 (por isso os botões não usam mais os pinos analógicos).
+D0/D1 (RX/TX) não são usados, para não atrapalhar a gravação por USB. A4/A5 são dedicados ao I2C do PCF8574. Pinos digitais em ordem: **D2~D7 = botões**, **D8~D12 = display Nokia** (CLK, DIN, DC, CE, RST).
 
 ## Lógica
 

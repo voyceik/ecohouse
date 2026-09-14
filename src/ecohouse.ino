@@ -3,8 +3,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_PCD8544.h>
 
-// Instância do Display Nokia 5110 (CLK, DIN, DC, CE, RST)
-Adafruit_PCD8544 display = Adafruit_PCD8544(13, 11, 5, 4, 3);
+// Instância do Display Nokia 5110 (CLK, DIN, DC, CE, RST) — D8~D12
+Adafruit_PCD8544 display = Adafruit_PCD8544(8, 9, 10, 11, 12);
 
 const int PIN_SOLAR = A0;   // LDR: dia/noite
 const int PIN_BATERIA = A1; // Divisor da bateria
@@ -58,10 +58,10 @@ unsigned long calcularConsumo_W(byte estado) {
 const unsigned long CONSUMO_MAX_W = 50 * 6 + 2000 + 3000; // todos ligados
 
 // --- Botões -----------------------------------------------------------------
-// 1 botão por LED/par + 1 de reinício. INPUT_PULLUP: pressionado = LOW.
-// D0/D1 (RX/TX) e A4/A5 (I2C do PCF8574) ficam de fora de propósito.
+// 1 botão por LED/par + 1 de reinício, todos em D2~D7 (contíguos). INPUT_PULLUP:
+// pressionado = LOW. D0/D1 (RX/TX) e A4/A5 (I2C do PCF8574) ficam de fora de propósito.
 const int NUM_BOTOES_GRUPO = 5;
-const int pinBotaoGrupo[NUM_BOTOES_GRUPO] = { 2, 6, 7, 8, 9 };
+const int pinBotaoGrupo[NUM_BOTOES_GRUPO] = { 2, 3, 4, 5, 6 };
 const byte maskGrupoBtn[NUM_BOTOES_GRUPO] = {
   B_JARDIM1 | B_JARDIM2,   // Jardim (as 2 luzes externas juntas)
   B_SALA,
@@ -72,7 +72,7 @@ const byte maskGrupoBtn[NUM_BOTOES_GRUPO] = {
 const char* msgLigadoBtn[NUM_BOTOES_GRUPO]    = { "Jardim aceso", "Sala acesa", "Quarto aceso", "Chuveiro ligado", "Forno ligado" };
 const char* msgDesligadoBtn[NUM_BOTOES_GRUPO] = { "Jardim apagado", "Sala apagada", "Quarto apagado", "Chuveiro desligado", "Forno desligado" };
 
-const int PIN_BOTAO_RESET = 10;
+const int PIN_BOTAO_RESET = 7;
 
 bool leituraAnteriorGrupo[NUM_BOTOES_GRUPO] = { HIGH, HIGH, HIGH, HIGH, HIGH };
 bool estadoEstavelGrupo[NUM_BOTOES_GRUPO]   = { HIGH, HIGH, HIGH, HIGH, HIGH };

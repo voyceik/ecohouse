@@ -16,10 +16,10 @@
 ## O que está simulado
 
 - **8 LEDs individuais** (2 verdes = jardim, 4 amarelos = cômodos, 2 vermelhos = forno/chuveiro) acionados por um **PCF8574** simulado, ligado por I2C (A4=SDA, A5=SCL) — o mesmo esquema da maquete real.
-- Display Nokia 5110 (SPI: D13/D11/D5/D4/D3, VCC em 3,3V).
+- Display Nokia 5110 (SPI: D8/D9/D10/D11/D12, VCC em 3,3V).
 - Sensor de luz (LDR) em A0 — arraste o slider de iluminância do LDR na simulação para alternar dia/noite.
 - Divisor de tensão da bateria (100kΩ/10kΩ) em A1.
-- 6 botões: Jardim (D2), Sala (D6), Quarto (D7), Banheiro+Chuveiro (D8), Cozinha+Forno (D9), Reinício (D10).
+- 6 botões, todos em D2~D7: Jardim (D2), Sala (D3), Quarto (D4), Banheiro+Chuveiro (D5), Cozinha+Forno (D6), Reinício (D7).
 
 Como o `sketch.ino` é o firmware real sem nenhuma adaptação, o roteiro fixo dia/noite (ver `README.md` do projeto) roda idêntico ao que vai rodar na placa de verdade — inclusive a simulação de chuveiro/forno com atraso de 3s/10s/2s.
 
