@@ -105,31 +105,18 @@ float lerTensaoBateria() {
   return (bruto * VREF_INTERNA / 1023.0) * BAT_DIVISOR * FATOR_BANCO_BATERIAS;
 }
 
-// --- Roteiro determinístico dia/noite ---------------------------------------
-// Cada evento diz "a partir deste instante (ms, desde o início do ciclo do
-// modo atual), os LEDs ficam neste estado". O tempo decorrido "dá a volta"
-// (módulo) na duração total, então o roteiro se repete em loop.
+// --- Roteiro determinístico (só à noite) -------------------------------------
+// De dia o comportamento é simples (ver iniciarCiclo/loop): começa tudo
+// ligado e cada botão só liga/desliga o seu grupo, sem roteiro automático.
+// À noite ainda existe um roteiro com script fixo por horário: cada evento
+// diz "a partir deste instante (ms, desde o início do ciclo), os LEDs ficam
+// neste estado". O tempo decorrido "dá a volta" (módulo) na duração total,
+// então o roteiro se repete em loop.
 struct Evento {
   unsigned long t;
   byte mascara;
   const char* label;
 };
-
-// Ciclo DIURNO: uso "descuidado", combinações fixas, terminando esquecendo
-// luzes acesas pela casa (jardim + sala).
-const Evento EVENTOS_DIA[] = {
-  { 0,     TODOS_LEDS,                                                                    "Todos (base)" },
-  { 15000, (byte)(B_JARDIM1 | B_JARDIM2),                                                  "So jardim" },
-  { 20000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA | B_COZINHA | B_QUARTO | B_BANHEIRO),     "Jardim+comodos" },
-  { 25000, TODOS_LEDS,                                                                     "Todos ligados" },
-  { 30000, (byte)(TODOS_LEDS & ~B_COZINHA),                                                "Sai cozinha" },
-  { 31000, (byte)(TODOS_LEDS & ~B_COZINHA & ~B_FORNO),                                     "Sai forno" },
-  { 32000, (byte)(TODOS_LEDS & ~B_COZINHA & ~B_FORNO & ~B_QUARTO),                         "Sai quarto" },
-  { 33000, (byte)(TODOS_LEDS & ~B_COZINHA & ~B_FORNO & ~B_QUARTO & ~B_BANHEIRO),           "Sai banheiro" },
-  { 34000, (byte)(B_JARDIM1 | B_JARDIM2 | B_SALA),                                         "Esqueceu aceso" },
-};
-const int N_EVENTOS_DIA = sizeof(EVENTOS_DIA) / sizeof(Evento);
-const unsigned long DURACAO_DIA = 39000; // 34000 + 5s de espera antes de repetir
 
 // Ciclo NOTURNO: uso "consciente" na bateria, andando de cômodo em cômodo e
 // só apagando o anterior 1s depois de acender o próximo. Banheiro+chuveiro e
@@ -161,18 +148,15 @@ const Evento EVENTOS_NOITE[] = {
 const int N_EVENTOS_NOITE = sizeof(EVENTOS_NOITE) / sizeof(Evento);
 const unsigned long DURACAO_NOITE = 82000; // 77000 + 5s de espera antes de repetir
 
-byte calcularEstadoTabela(bool modoNoturno, unsigned long decorrido, const char** labelOut) {
-  const Evento* tabela = modoNoturno ? EVENTOS_NOITE : EVENTOS_DIA;
-  int n = modoNoturno ? N_EVENTOS_NOITE : N_EVENTOS_DIA;
-  unsigned long duracao = modoNoturno ? DURACAO_NOITE : DURACAO_DIA;
-  unsigned long t = decorrido % duracao;
+byte calcularEstadoNoite(unsigned long decorrido, const char** labelOut) {
+  unsigned long t = decorrido % DURACAO_NOITE;
 
   int idx = 0;
-  for (int i = 0; i < n; i++) {
-    if (tabela[i].t <= t) idx = i; else break;
+  for (int i = 0; i < N_EVENTOS_NOITE; i++) {
+    if (EVENTOS_NOITE[i].t <= t) idx = i; else break;
   }
-  *labelOut = tabela[idx].label;
-  return tabela[idx].mascara;
+  *labelOut = EVENTOS_NOITE[idx].label;
+  return EVENTOS_NOITE[idx].mascara;
 }
 
 // --- Estado ao vivo -----------------------------------------------------
@@ -190,12 +174,18 @@ bool primeiraLeitura = true;
 unsigned long ultimaAtualizacaoDisplay = 0;
 const unsigned long DISPLAY_INTERVALO_MS = 150;
 
-// Reinicia o roteiro do modo atual do zero (troca de dia/noite ou botão reset).
+// Reinicia o estado do modo atual (troca de dia/noite ou botão reset).
+// De dia: liga tudo de novo. De noite: reinicia o roteiro do zero (t=0).
 void iniciarCiclo(bool modoNoturno) {
   cicloInicio = millis();
   standbyAte = 0;
   standbyIniciadoEm = 0;
-  estadoAtual = calcularEstadoTabela(modoNoturno, 0, &mensagemAtual);
+  if (modoNoturno) {
+    estadoAtual = calcularEstadoNoite(0, &mensagemAtual);
+  } else {
+    estadoAtual = TODOS_LEDS;
+    mensagemAtual = "Todos ligados";
+  }
 }
 
 void lerBotoesDeGrupo(unsigned long agora) {
@@ -292,17 +282,20 @@ void loop() {
   lerBotoesDeGrupo(agora);
   lerBotaoReset(agora, modoNoturno);
 
-  // Fim do stand-by: "encolhe" a referência de tempo pelo tanto que ficou
-  // pausado, para o roteiro continuar exatamente de onde parou.
-  if (standbyIniciadoEm != 0 && agora >= standbyAte) {
-    cicloInicio += (agora - standbyIniciadoEm);
-    standbyIniciadoEm = 0;
-  }
+  if (modoNoturno) {
+    // Fim do stand-by: "encolhe" a referência de tempo pelo tanto que ficou
+    // pausado, para o roteiro continuar exatamente de onde parou.
+    if (standbyIniciadoEm != 0 && agora >= standbyAte) {
+      cicloInicio += (agora - standbyIniciadoEm);
+      standbyIniciadoEm = 0;
+    }
 
-  if (agora >= standbyAte) {
-    estadoAtual = calcularEstadoTabela(modoNoturno, agora - cicloInicio, &mensagemAtual);
+    if (agora >= standbyAte) {
+      estadoAtual = calcularEstadoNoite(agora - cicloInicio, &mensagemAtual);
+    }
+    // Em stand-by: mantém estadoAtual/mensagemAtual como o botão deixou.
   }
-  // Em stand-by: mantém estadoAtual/mensagemAtual como o botão deixou.
+  // De dia não há roteiro automático: estadoAtual só muda por botão (ou reset).
 
   escreverLeds(estadoAtual);
 

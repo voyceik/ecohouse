@@ -89,16 +89,9 @@ D0/D1 (RX/TX) não são usados, para não atrapalhar a gravação por USB. A4/A5
 
 ## Lógica
 
-O ciclo é um **roteiro fixo por horário**, não mais aleatório — cada modo (dia/noite) tem uma tabela de eventos com o instante (ms desde o início do ciclo) e o estado dos 8 LEDs naquele instante; o `millis()` decorrido "dá a volta" na duração total do roteiro, repetindo-o.
+**Sensor de luz (A0) > 300 → modo DIURNO**: simples e manual, sem roteiro automático. Ao entrar no modo (ou apertar reinício), **acende todos os 8 LEDs**; a partir daí cada botão só liga/desliga o seu grupo, e o estado fica exatamente como os botões deixaram até o próximo reinício ou troca pra modo noturno.
 
-**Sensor de luz (A0) > 300 → modo DIURNO** ("uso descuidado"), ciclos de 5s (exceto onde indicado):
-1. Acende **todos os 8 LEDs por 15s** — é a referência de consumo máximo mostrada no display.
-2. Só o jardim aceso.
-3. Jardim + todos os cômodos (sala, cozinha, quarto, banheiro).
-4. Todos ligados de novo (+ forno + chuveiro).
-5. "Esquece" as luzes: apaga cozinha, forno, quarto e banheiro em sequência (1s entre cada), deixando só jardim + sala acesos — e o ciclo recomeça do passo 1.
-
-**Sensor de luz (A0) ≤ 300 → modo NOTURNO** ("uso consciente", rodando na bateria), andando de cômodo em cômodo e só apagando o anterior 1s depois de acender o próximo:
+**Sensor de luz (A0) ≤ 300 → modo NOTURNO** ("uso consciente", rodando na bateria): **roteiro fixo por horário** — uma tabela de eventos com o instante (ms desde o início do ciclo) e o estado dos 8 LEDs naquele instante; o `millis()` decorrido "dá a volta" na duração total do roteiro, repetindo-o. Anda de cômodo em cômodo e só apaga o anterior 1s depois de acender o próximo:
 1. Jardim 1, depois Jardim 2 (as duas luzes externas ficam acesas o resto do ciclo, e só apagam no passo final).
 2. Sala.
 3. Quarto.
@@ -112,9 +105,9 @@ O ciclo é um **roteiro fixo por horário**, não mais aleatório — cada modo 
 
 **Simulação de chuveiro/forno**: em qualquer ponto do roteiro em que o cômodo liga junto com o aparelho pesado (banheiro→chuveiro, cozinha→forno), o aparelho não acende junto — ele espera 3s (a "pessoa entrou no cômodo"), fica ligado 10s (o "banho"/"uso do forno") e o cômodo em si só apaga 2s depois do aparelho desligar (a "pessoa sai").
 
-**Qualquer botão de grupo**: alterna o(s) LED(s) daquele grupo na hora (liga/desliga simples) e pausa o roteiro automático por 5s ("stand-by") — os outros LEDs mantêm o estado atual. Passado esse tempo sem novo toque, o roteiro automático retoma exatamente do ponto (do tempo) em que parou, já refletindo o estado alterado pelo botão até o próximo evento da tabela corrigir aquele LED. A mensagem no display mostra o status exato do grupo alterado (ex.: "Sala acesa"/"Sala apagada", "Chuveiro ligado"/"Chuveiro desligado", "Forno ligado"/"Forno desligado").
+**Qualquer botão de grupo**: alterna o(s) LED(s) daquele grupo na hora (liga/desliga simples) — os outros LEDs mantêm o estado atual. A mensagem no display mostra o status exato do grupo alterado (ex.: "Sala acesa"/"Sala apagada", "Chuveiro ligado"/"Chuveiro desligado", "Forno ligado"/"Forno desligado"). **De dia** o botão é a única forma de mudar o estado — fica assim até o próximo toque, reinício ou troca de modo. **De noite** o botão também pausa o roteiro automático por 5s ("stand-by"); passado esse tempo sem novo toque, o roteiro retoma exatamente do ponto (do tempo) em que parou, já refletindo o estado alterado até o próximo evento da tabela corrigir aquele LED.
 
-**Botão de reinício**: reinicia do zero (t=0) o roteiro do modo atual (dia ou noite).
+**Botão de reinício**: **de dia**, acende todos os 8 LEDs de novo. **De noite**, reinicia do zero (t=0) o roteiro noturno.
 
 **Consumo estimado**: cada LED representa uma carga com potência real aproximada (W) — 50W para cada luz (jardim e cômodos), 2000W para o forno e 3000W para o chuveiro (cargas pesadas de verdade, para o "% do máximo" no display fazer sentido comparando uma lâmpada com um chuveiro/forno). O máximo (todos ligados) é uma constante calculada uma vez.
 

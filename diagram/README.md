@@ -21,7 +21,7 @@
 - Divisor de tensão da bateria (100kΩ/10kΩ) em A1.
 - 6 botões, todos em D2~D7: Jardim (D2), Sala (D3), Quarto (D4), Banheiro+Chuveiro (D5), Cozinha+Forno (D6), Reinício (D7).
 
-Como o `sketch.ino` é o firmware real sem nenhuma adaptação, o roteiro fixo dia/noite (ver `README.md` do projeto) roda idêntico ao que vai rodar na placa de verdade — inclusive a simulação de chuveiro/forno com atraso de 3s/10s/2s.
+Como o `sketch.ino` é o firmware real sem nenhuma adaptação, o comportamento dia/noite (ver `README.md` do projeto) roda idêntico ao que vai rodar na placa de verdade — de dia os botões ligam/desligam LEDs livremente a partir de "tudo aceso"; de noite roda o roteiro fixo por horário, inclusive a simulação de chuveiro/forno com atraso de 3s/10s/2s.
 
 ## Diferenças em relação ao circuito real
 
