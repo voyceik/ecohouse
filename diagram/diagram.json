@@ -3,7 +3,7 @@
   "author": "Anonymous maker",
   "editor": "wokwi",
   "parts": [
-    { "type": "wokwi-arduino-uno", "id": "uno", "top": 48.6, "left": 28.2, "attrs": {} },
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 29.4, "left": 66.6, "attrs": {} },
     { "type": "board-nokia-5110", "id": "lcd1", "top": 315.06, "left": 111.42, "attrs": {} },
     { "type": "chip-pcf8574", "id": "u1", "top": 87.42, "left": 369.6, "attrs": {} },
     {
@@ -81,23 +81,17 @@
     { "type": "wokwi-ldr", "id": "ldr1", "top": 470, "left": 620, "attrs": {} },
     {
       "type": "wokwi-resistor",
-      "id": "r_ldr",
-      "top": 470,
-      "left": 690,
-      "attrs": { "value": "10000" }
-    },
-    {
-      "type": "wokwi-resistor",
       "id": "r_bat_100k",
-      "top": 470,
-      "left": 830,
+      "top": 522.35,
+      "left": 720,
       "attrs": { "value": "100000" }
     },
     {
       "type": "wokwi-resistor",
       "id": "r_bat_10k",
-      "top": 470,
-      "left": 900,
+      "top": 570.35,
+      "left": 921.6,
+      "rotate": 90,
       "attrs": { "value": "10000" }
     },
     {
@@ -179,16 +173,14 @@
     [ "uno:5V", "r7:1", "red", [] ],
     [ "r7:2", "led7:A", "green", [] ],
     [ "led7:C", "u1:P6", "green", [] ],
-    [ "uno:5V", "r8:1", "red", [] ],
+    [ "uno:5V", "r8:1", "red", [ "v-0.1", "h531.8" ] ],
     [ "r8:2", "led8:A", "green", [] ],
     [ "led8:C", "u1:P7", "green", [] ],
-    [ "uno:5V", "ldr1:1", "red", [] ],
-    [ "ldr1:2", "r_ldr:1", "green", [] ],
-    [ "uno:A0", "r_ldr:1", "green", [] ],
-    [ "r_ldr:2", "uno:GND.1", "black", [] ],
-    [ "uno:5V", "r_bat_100k:1", "red", [] ],
+    [ "uno:A0", "ldr1:1", "green", [ "v143.9", "h330.2" ] ],
+    [ "ldr1:2", "uno:GND.1", "black", [ "v9.6", "h-606.3" ] ],
+    [ "uno:5V", "r_bat_100k:1", "red", [ "h42.2", "v287.9" ] ],
     [ "r_bat_100k:2", "r_bat_10k:1", "green", [] ],
-    [ "uno:A1", "r_bat_10k:1", "green", [] ],
+    [ "uno:A1", "r_bat_10k:1", "green", [ "v172.7", "h705.25" ] ],
     [ "r_bat_10k:2", "uno:GND.1", "black", [] ],
     [ "btn_jardim:1.l", "uno:2", "green", [] ],
     [ "btn_jardim:2.l", "uno:GND.1", "black", [] ],

@@ -17,7 +17,7 @@
 
 - **8 LEDs individuais** (2 verdes = jardim, 4 amarelos = cômodos, 2 vermelhos = forno/chuveiro) acionados por um **PCF8574** simulado, ligado por I2C (A4=SDA, A5=SCL) — o mesmo esquema da maquete real.
 - Display Nokia 5110 (SPI: D8/D9/D10/D11/D12, VCC em 3,3V).
-- Sensor de luz (LDR) em A0 — arraste o slider de iluminância do LDR na simulação para alternar dia/noite.
+- Sensor de luz (LDR) em A0, só 2 fios (A0 e GND) — o firmware usa o pull-up interno do pino como resistor fixo, então luz alta = leitura baixa e escuro = leitura alta (lógica invertida em relação a um divisor "normal"). Arraste o slider de iluminância do LDR na simulação para alternar dia/noite.
 - Divisor de tensão da bateria (100kΩ/10kΩ) em A1.
 - 6 botões, todos em D2~D7: Jardim (D2), Sala (D3), Quarto (D4), Banheiro+Chuveiro (D5), Cozinha+Forno (D6), Reinício (D7).
 
@@ -28,5 +28,5 @@ Como o `sketch.ino` é o firmware real sem nenhuma adaptação, o comportamento 
 - **O chip PCF8574 é um "Custom Chip" simplificado**, escrito à mão para esta simulação (não existe uma peça nativa no Wokwi). Ele só implementa a parte usada pelo firmware: recebe o byte escrito por I2C e espelha cada bit em P0-P7 como saída digital. O PCF8574 de verdade é "quasi-bidirecional" (dá pra usar os mesmos pinos como entrada, puxando pra baixo externamente) — isso não é modelado aqui porque o firmware nunca lê os LEDs de volta.
 - **Os LEDs precisam estar ligados 5V → resistor → anodo; catodo → pino do PCF8574** (mesma topologia do circuito real, ver `README.md` do projeto). Se algum LED aparecer aceso trocado (aceso quando o roteiro/mensagem diz apagado, ou vice-versa) na simulação, o motivo quase certo é essa polaridade invertida — já corrigida no `diagram.json` deste repositório.
 - **O divisor da bateria está ligado ao 5V do Arduino**, não a uma bateria de verdade (o Wokwi não tem um pack de pilhas com tensão variável) — então a leitura no display vai mostrar sempre algo perto do valor "cheio" (o firmware ainda multiplica por 10 pra simular um banco off-grid, então o número exibido fica na casa dos 120V mesmo com só 5V físicos no divisor). Só serve pra validar a conta do divisor (100k/10k, referência interna 1,1V) e o fator de escala, não pra simular a bateria descarregando.
-- **Nomes dos pinos do LDR**: usei os nomes de pino padrão do `wokwi-ldr` (`1`/`2`). Se o Wokwi reclamar de algum fio solto nesse componente, é só arrastar de novo no editor visual — o que importa é a topologia 5V→LDR→(nó)→10kΩ→GND com o nó em A0.
+- **Nomes dos pinos do LDR**: usei os nomes de pino padrão do `wokwi-ldr` (`1`/`2`). Se o Wokwi reclamar de algum fio solto nesse componente, é só arrastar de novo no editor visual — o que importa é a topologia A0→LDR→GND, com `pinMode(PIN_SOLAR, INPUT_PULLUP)` no firmware fazendo o papel do resistor fixo.
 - Todos os GNDs novos apontam para `uno:GND.1`; o Wokwi permite vários fios no mesmo pino de GND sem problema.

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "author": "Anonymous maker",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 29.4, "left": 66.6, "attrs": {} },
+    { "type": "wokwi-ldr", "id": "ldr1", "top": 100, "left": 400, "attrs": {} }
+  ],
+  "connections": [
+    [ "uno:A0", "ldr1:1", "green", [] ],
+    [ "ldr1:2", "uno:GND.1", "black", [] ]
+  ],
+  "dependencies": {}
+}
